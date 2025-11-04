@@ -122,33 +122,18 @@ class SMPS(BaseFiniteDevice):
         data_points = []
 
         # Get parameters
-        num_points = self.measurement_parameters.get("dataPoints", 10)
-        measurement_type = self.measurement_parameters.get("measurementType", "temperature")
+        self.serial_port.write(f'ZB\r'.encode('utf-8'))
+        response = self.serial_port.read(100) 
+        if(not response.find("OK")):
+            print("Received ERROR after trying to start SMPS scan.")
 
-        print(f"Generating {num_points} data points of type {measurement_type}...", flush=True)
+        foundDelimiterString = False
+        while(foundDelimiterString):
 
-        for i in range(num_points):
-            # Simulate measurement process
-            await asyncio.sleep(0.1)  # Simulate measurement time
+            response = self.serial_port.read(100) 
+            data_points.append(response)
+            if(response.find("-")): foundDelimiterString = True
 
-            # Generate simulated value based on type
-            if measurement_type == "temperature":
-                value = 20.0 + (i * 0.5) + (time.time() % 10)  # Simulated temperature
-            elif measurement_type == "humidity":
-                value = 50.0 + (i * 0.3) + (time.time() % 20)  # Simulated humidity
-            else:
-                value = i * 1.5  # Generic value
-
-            data_points.append({
-                "timestamp": datetime.now().isoformat(),
-                "value": round(value, 2),
-                "unit": self._get_unit_for_type(measurement_type)
-            })
-
-            if (i + 1) % 10 == 0:
-                print(f"Generated {i+1}/{num_points} data points", flush=True)
-
-        print(f"Data generation complete: {len(data_points)} points", flush=True)
         return data_points
 
     def validate_parameters(self, parameters: Dict) -> Tuple[bool, str]:
@@ -162,36 +147,25 @@ class SMPS(BaseFiniteDevice):
         self.upscantime = parameters.get(self.maxvoltage_parameter_string)
         self.downscantime = parameters.get(self.maxvoltage_parameter_string)
         
-
-
         print(f"Setting voltage from min. voltage {self.minvoltage} V to {self.maxvoltage}...")
-
         self.serial_port.write(f'ZV{self.minvoltage},{self.maxvoltage}\r'.encode('utf-8'))
-
-        response = self.serial_port.read(100)
-        #Check Response if error return function which false and error msg as tuple
+        response = self.serial_port.read(100) 
         print(f"Response: {response}")
-
+        if(not response.find("OK")): return (False, "Received ERROR after setting voltages.")
+        
         print(f"Setting upscan time to {self.upscantime/10} s and down scan time to {self.downscantime/10} s ...")
-
         self.serial_port.write(f'ZT0,{self.upscantime},{self.downscantime}\r'.encode('utf-8'))
         response = self.serial_port.read(100)
-        
-        #Check Response if error return function which false and error msg as tuple
-        
         print(f"Response: {response}")
+        if(not response.find("OK")): return (False, "Received ERROR after setting upscan and downscan times.")
 
         print(f"Setting scan direction to up...")
-
         self.serial_port.write(b'ZU\r')
-
         response = self.serial_port.read(100)
-        #Check Response if error return function which false and error msg as tuple
         print(f"Response: {response}")
-        
+        if(not response.find("OK")): return(False, "Received ERROR after setting scan direction.")
 
-        # if no error encountered than return true and "" as string for tuple
-
+        return(True,"Parameters OK")
 
 
     # =========================================================================
@@ -207,11 +181,11 @@ class SMPS(BaseFiniteDevice):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python dummy_finite_measurement.py <device_id>", flush=True)
+        print("Usage: python smps.py <device_id>", flush=True)
         sys.exit(1)
 
     device_id = sys.argv[1]
-    print(f"Starting dummy device with ID: {device_id}", flush=True)
+    print(f"Starting SMPS with ID: {device_id}", flush=True)
     print(f"Process ID: {os.getpid()}", flush=True)
 
     # Create and run device instance
