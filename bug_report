@@ -1,0 +1,1 @@
+base device needs to elevate finish handling to subclass to get specific implementation on how to end the device -> handle in generate measurement data

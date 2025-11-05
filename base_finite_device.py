@@ -480,11 +480,11 @@ class BaseFiniteDevice(ABC):
     async def handle_get_data_structured(self):
         """Handle GETDATA_STRUCTURED command - generates and returns measurement data."""
         try:
-            print("Generating measurement data...", flush=True)
-
+            print("Generating measurement data LOL...", flush=True)
+            print("doing stuff")
             # Generate data using subclass implementation
             data_points = await self.generate_measurement_data()
-
+            print("Exited generate_measurement_data")
             # Create response in expected format
             response_data = {
                 "rawData": [json.dumps(dp) for dp in data_points],  # Convert to string format

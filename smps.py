@@ -2,7 +2,6 @@
 
 import serial
 import time
-from pymodbus.client.serial import ModbusSerialClient
 import asyncio
 import sys
 import time
@@ -16,7 +15,6 @@ class SMPS(BaseFiniteDevice):
     """
     SMPS implementation for SmartLab app.
     """
-    s
 
     def __init__(self, device_id: str):
         """
@@ -42,8 +40,16 @@ class SMPS(BaseFiniteDevice):
     
     
     def setup_serial_port(self):
+        
+        serial_port_filename = "portname.txt"
+        connectionstring = ""
+        with open(serial_port_filename) as f:
+            connectionstring = f.readline()
+            
+        print(f"setup_serial_port on {connectionstring}")
+        
         ser = serial.Serial(
-            port='/dev/ttyUSB0',       # Change if needed
+            port=connectionstring,       # Change if needed
             baudrate=115200,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
@@ -53,29 +59,31 @@ class SMPS(BaseFiniteDevice):
         )
         return ser
 
-
-
     # =========================================================================
     # Abstract Method Implementations
     # =========================================================================
 
     def get_device_name(self) -> str:
         """Return the display name of this dummy device. Initialization logic"""
-        print(f"SMPS.get_device_name: Trying to open serial port")
-        self.serial_port.open()
+        if(self.serial_port.is_open):
+            print(f"SMPS.get_device_name: Serial port is already open on {self.serial_port.portstr}")
+
+        else:
+            print(f"SMPS.get_device_name: Trying to open serial port")
+            self.serial_port.open()
+        
+        
         if(not self.serial_port.is_open):
             print(f"SMPS.get_device_name: Serial port is not open on {self.serial_port.portstr}")
             return ""
-        
+        self.serial_port.read_all()        
         self.serial_port.write(b'RSN\r')
 
         # Read response
+
         response = self.serial_port.read(100)  # Read up to 100 bytes
         print("Device ID:", response.decode(errors='ignore').strip())
-
-        self.serial_port.close()
-
-    
+        
         return f"SMPS (Serial number: {response.decode(errors='ignore').strip()})"
 
     async def get_parameter_definitions(self) -> List[Dict]:
@@ -93,8 +101,8 @@ class SMPS(BaseFiniteDevice):
             {
                 "name": f"{self.maxvoltage_parameter_string}",
                 "displayName": "maximal voltage to set at DMA",
-                "type": "String",
-                "defaultValue": "temperature",
+                "type": "Integer",
+                "defaultValue": 10000,
                 "isRequired": True,
                 "description": "Type of measurement (temperature, humidity, pressure)"
             },  
@@ -120,20 +128,24 @@ class SMPS(BaseFiniteDevice):
     async def generate_measurement_data(self) -> List[Dict]:
         """Generate simulated measurement data based on parameters."""
         data_points = []
-
+        print("SMPS.generate_measurement_data: called")
         # Get parameters
-        self.serial_port.write(f'ZB\r'.encode('utf-8'))
+        self.serial_port.write(b'ZB\r')
+        time.sleep(0.01)
         response = self.serial_port.read(100) 
-        if(not response.find("OK")):
+        if(response.find(b'OK') == -1):
             print("Received ERROR after trying to start SMPS scan.")
-
+        print("Starting measurement")
         foundDelimiterString = False
-        while(foundDelimiterString):
+        while(not foundDelimiterString):
 
-            response = self.serial_port.read(100) 
+            response = self.serial_port.read_until(expected=b'\r')
+            response = response.decode('utf-8', errors='replace')
+            print(response)
             data_points.append(response)
-            if(response.find("-")): foundDelimiterString = True
-
+            if(response.find("-") > -1): foundDelimiterString = True
+        print(f"got these data points: {data_points}")
+        self.end_measurement()
         return data_points
 
     def validate_parameters(self, parameters: Dict) -> Tuple[bool, str]:
@@ -144,26 +156,40 @@ class SMPS(BaseFiniteDevice):
 
         self.minvoltage = parameters.get(self.minvoltage_parameter_string)
         self.maxvoltage = parameters.get(self.maxvoltage_parameter_string)
-        self.upscantime = parameters.get(self.maxvoltage_parameter_string)
-        self.downscantime = parameters.get(self.maxvoltage_parameter_string)
+        self.upscantime = parameters.get(self.upscantime_parameter_string) * 10
+        self.downscantime = parameters.get(self.downscantime_parameter_string) * 10
         
+        print("Setting CPC to SMPS mode")
+        self.serial_port.write(b'SCM,2\r')
+        response = self.serial_port.read(100)
+        if(response.find(b'OK') == -1):
+            print("could not turn into SMPS mode")
+            return (False, "SMPS mode not set.")
         print(f"Setting voltage from min. voltage {self.minvoltage} V to {self.maxvoltage}...")
         self.serial_port.write(f'ZV{self.minvoltage},{self.maxvoltage}\r'.encode('utf-8'))
+        
         response = self.serial_port.read(100) 
         print(f"Response: {response}")
-        if(not response.find("OK")): return (False, "Received ERROR after setting voltages.")
-        
+        print(f"Wrote to CPC")
+        if(response.find(b'OK') == -1): 
+            print("SMPS.validate_parameters: found no OK in response")
+            return (False, "Received ERROR after setting voltages.")
+        print("left if clause...")
         print(f"Setting upscan time to {self.upscantime/10} s and down scan time to {self.downscantime/10} s ...")
         self.serial_port.write(f'ZT0,{self.upscantime},{self.downscantime}\r'.encode('utf-8'))
         response = self.serial_port.read(100)
         print(f"Response: {response}")
-        if(not response.find("OK")): return (False, "Received ERROR after setting upscan and downscan times.")
+        if(response.find(b'OK') == -1): 
+            print("SMPS.validate_parameters: found no OK in response")
+            return (False, "Received ERROR after setting upscan and downscan times.")
 
         print(f"Setting scan direction to up...")
         self.serial_port.write(b'ZU\r')
         response = self.serial_port.read(100)
         print(f"Response: {response}")
-        if(not response.find("OK")): return(False, "Received ERROR after setting scan direction.")
+        if(response.find(b'OK') == -1): 
+            print("SMPS.validate_parameters: found no OK in response")
+            return(False, "Received ERROR after setting scan direction.")
 
         return(True,"Parameters OK")
 
@@ -172,6 +198,14 @@ class SMPS(BaseFiniteDevice):
     # Helper Methods
     # =========================================================================
 
+    def end_measurement(self):
+        self.serial_port.write(b'ZE\r')
+        response = self.serial_port.read(100)
+        print(f"Response: {response}")
+        if(response.find(b'OK') == -1): 
+            print("SMPS.validate_parameters: found no OK in response")
+            return False
+        return True
 
 
 
@@ -199,8 +233,8 @@ if __name__ == "__main__":
         print(f"Device error: {e}", flush=True)
         import traceback
         traceback.print_exc()
-    
-
+    device.end_measurement()
+    device.serial_port.close()
 
 
 
