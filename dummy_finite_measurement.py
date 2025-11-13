@@ -43,14 +43,6 @@ class DummyFiniteDevice(BaseFiniteDevice):
                 "isRequired": True,
                 "unit": "points",
                 "description": "Number of measurement points to collect"
-            },
-            {
-                "name": "measurementType",
-                "displayName": "Measurement Type",
-                "type": "String",
-                "defaultValue": "temperature",
-                "isRequired": True,
-                "description": "Type of measurement (temperature, humidity, pressure)"
             }
         ]
 
@@ -60,26 +52,21 @@ class DummyFiniteDevice(BaseFiniteDevice):
 
         # Get parameters
         num_points = self.measurement_parameters.get("dataPoints", 10)
-        measurement_type = self.measurement_parameters.get("measurementType", "temperature")
+        #measurement_type = self.measurement_parameters.get("measurementType", "temperature")
 
-        print(f"Generating {num_points} data points of type {measurement_type}...", flush=True)
+        #print(f"Generating {num_points} data points of type {measurement_type}...", flush=True)
 
         for i in range(num_points):
             # Simulate measurement process
-            await asyncio.sleep(0.1)  # Simulate measurement time
+            await asyncio.sleep(0.01)  # Simulate measurement time
 
             # Generate simulated value based on type
-            if measurement_type == "temperature":
-                value = 20.0 + (i * 0.5) + (time.time() % 10)  # Simulated temperature
-            elif measurement_type == "humidity":
-                value = 50.0 + (i * 0.3) + (time.time() % 20)  # Simulated humidity
-            else:
-                value = i * 1.5  # Generic value
-
+            value = 20.0 + (i * 0.5) + (time.time() % 10)  # Simulated temperature
+            #if measurement_type == "temperature":
+                
+            
             data_points.append({
-                "timestamp": datetime.now().isoformat(),
                 "value": round(value, 2),
-                "unit": self._get_unit_for_type(measurement_type)
             })
 
             if (i + 1) % 10 == 0:
@@ -117,18 +104,7 @@ class DummyFiniteDevice(BaseFiniteDevice):
     # Helper Methods
     # =========================================================================
 
-    def _get_unit_for_type(self, measurement_type: str) -> str:
-        """Return appropriate unit for measurement type."""
-        units = {
-            "temperature": "°C",
-            "humidity": "%",
-            "pressure": "Pa",
-            "voltage": "V",
-            "current": "A"
-        }
-        return units.get(measurement_type, "units")
-
-
+    
 
 # =========================================================================
 # Entry Point

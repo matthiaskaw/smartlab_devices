@@ -57,6 +57,8 @@ class SMPS(BaseFiniteDevice):
             timeout=10  # in seconds
 
         )
+        
+        print(f"SMPS.setup_serial_port: Serial port {ser.portstr} is open {ser.is_open}")
         return ser
 
     # =========================================================================

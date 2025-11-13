@@ -161,10 +161,16 @@ class SMPS(BaseFiniteDevice):
         """Generate simulated measurement data based on parameters."""
         data_points = []
         print("SMPS.generate_measurement_data: called")
+
+        # Clear any stale data in the buffer to prevent reading old data
+        self.serial_port.reset_input_buffer()
+
         # Get parameters
         self.serial_port.write(b'ZB\r')
-        time.sleep(0.01)
-        response = self.serial_port.read(100) 
+        time.sleep(0.1)  # Increased delay to ensure command is processed
+
+        # Read just the OK response line to avoid consuming actual data
+        response = self.serial_port.read_until(expected=b'\r')
         if(response.find(b'OK') == -1):
             print("Received ERROR after trying to start SMPS scan.")
         print("Starting measurement")
