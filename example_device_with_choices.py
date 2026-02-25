@@ -10,7 +10,7 @@ import sys
 import os
 from datetime import datetime
 from typing import List, Dict, Tuple
-from base_finite_device import BaseFiniteDevice
+from src.base_finite_device import BaseFiniteDevice
 
 
 class ExampleChoiceDevice(BaseFiniteDevice):

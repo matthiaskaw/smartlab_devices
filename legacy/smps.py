@@ -6,7 +6,6 @@ import asyncio
 import sys
 import time
 import os
-import logging
 from datetime import datetime
 from typing import List, Dict, Tuple
 
@@ -27,23 +26,13 @@ class SMPS(BaseFiniteDevice):
         - Configuration loading
         - Calibration data
         """
-        
-        super().__init__(device_id)
-        
-        logging.basicConfig(filename="smps.log", level=logging.INFO)
-        self._logger = logging.getLogger(__name__)
-        
         # Always call parent constructor first
-
-        
+        super().__init__(device_id)
         self.serial_port = self.setup_serial_port()
         self.minvoltage_parameter_string = "minvoltage"
         self.maxvoltage_parameter_string = "maxvoltage"
         self.upscantime_parameter_string = "upscan"
         self.downscantime_parameter_string = "downscan"
-        self.sheathflow_parameter_string = "sheathflow"
-        self.aerosolflow_parameter_string = "aerosolflow"
-        self.dma_parameter_string = "DMA_Type"
 
     # =========================================================================
     # Subclass Method Implementations
@@ -53,14 +42,9 @@ class SMPS(BaseFiniteDevice):
     def setup_serial_port(self):
         
         serial_port_filename = "portname.txt"
-        
         connectionstring = ""
         with open(serial_port_filename) as f:
-            self._logger.info(f"Getting portname from file...")
-            connectionstring = f.readline().strip().replace("'","")
-            self._logger.info(f"Portname is {connectionstring}")
-        
-        self._logger.info(f"Loaded serial port {connectionstring}")
+            connectionstring = f.readline()
             
         print(f"setup_serial_port on {connectionstring}")
         
@@ -73,6 +57,8 @@ class SMPS(BaseFiniteDevice):
             timeout=10  # in seconds
 
         )
+        
+        print(f"SMPS.setup_serial_port: Serial port {ser.portstr} is open {ser.is_open}")
         return ser
 
     # =========================================================================
@@ -81,22 +67,16 @@ class SMPS(BaseFiniteDevice):
 
     def get_device_name(self) -> str:
         """Return the display name of this dummy device. Initialization logic"""
-        
-
-        self._logger.info(f"get_device_name called...")
-        
         if(self.serial_port.is_open):
             print(f"SMPS.get_device_name: Serial port is already open on {self.serial_port.portstr}")
-            self._logger.info(f"SMPS.get_device_name: Serial port is already open on {self.serial_port.portstr}")
+
         else:
             print(f"SMPS.get_device_name: Trying to open serial port")
-            self._logger.info(f"SMPS.get_device_name: Trying to open serial port")
             self.serial_port.open()
         
         
         if(not self.serial_port.is_open):
             print(f"SMPS.get_device_name: Serial port is not open on {self.serial_port.portstr}")
-            self._logger.info(f"SMPS.get_device_name: Serial port is not open on {self.serial_port.portstr}")
             return ""
         self.serial_port.read_all()        
         self.serial_port.write(b'RSN\r')
@@ -105,13 +85,11 @@ class SMPS(BaseFiniteDevice):
 
         response = self.serial_port.read(100)  # Read up to 100 bytes
         print("Device ID:", response.decode(errors='ignore').strip())
-        self._logger.info(f"Device ID: {response.decode(errors='ignore').strip()}")
-
-        return f"{response.decode(errors='ignore').strip()}"
+        
+        return f"SMPS (Serial number: {response.decode(errors='ignore').strip()})"
 
     async def get_parameter_definitions(self) -> List[Dict]:
         """Return parameter definitions for dummy device."""
-        self._logger.info(f"Getting parameter definitions....")
         return [
             {
                 "name": f"{self.minvoltage_parameter_string}",
@@ -145,36 +123,7 @@ class SMPS(BaseFiniteDevice):
                 "defaultValue": 15,
                 "isRequired": True,
                 "description": "downscan time for measurement"
-            },
-            {
-                "name": f"{self.sheathflow_parameter_string}",
-                "displayName": "Sheathflow in L/min",
-                "type": "Integer",
-                "defaultValue": 15,
-                "isRequired": True,
-                "description": "Sheathflow in L/min for measurement"           
-
-            },
-            {
-                "name": f"{self.aerosolflow_parameter_string}",
-                "displayName": "Aerosolflow in L/min",
-                "type": "Integer",
-                "defaultValue": 1.5,
-                "isRequired": True,
-                "description": "Sheathflow in L/min for measurement"           
-
-            },
-            {
-                "name": f"{self.dma_parameter_string}",
-                "displayName": "DMA Type for measurement",
-                "type": "String",
-                "defaultValue": "3085",
-                "isRequired": True,
-                "description": "Select DMA Type for measurement.",
-                "options": ["Type 3085", "Type 3081"]           
-
             }
-            
             
         ]
 
@@ -182,16 +131,10 @@ class SMPS(BaseFiniteDevice):
         """Generate simulated measurement data based on parameters."""
         data_points = []
         print("SMPS.generate_measurement_data: called")
-        self._logger.info("SMPS.generate_measurement_data: called")
-        # Clear any stale data in the buffer to prevent reading old data
-        self.serial_port.reset_input_buffer()
-
         # Get parameters
         self.serial_port.write(b'ZB\r')
-        time.sleep(0.1)  # Increased delay to ensure command is processed
-
-        # Read just the OK response line to avoid consuming actual data
-        response = self.serial_port.read_until(expected=b'\r')
+        time.sleep(0.01)
+        response = self.serial_port.read(100) 
         if(response.find(b'OK') == -1):
             print("Received ERROR after trying to start SMPS scan.")
         print("Starting measurement")
@@ -203,9 +146,6 @@ class SMPS(BaseFiniteDevice):
             print(response)
             data_points.append(response)
             if(response.find("-") > -1): foundDelimiterString = True
-            
-
-
         print(f"got these data points: {data_points}")
         self.end_measurement()
         return data_points
@@ -215,8 +155,7 @@ class SMPS(BaseFiniteDevice):
         #Send parameters to device and check response; validation made by device itself
         #Put every step in function that returns the response
         
-        self._logger.info(f"Validating measurement data...")
-        
+
         self.minvoltage = parameters.get(self.minvoltage_parameter_string)
         self.maxvoltage = parameters.get(self.maxvoltage_parameter_string)
         self.upscantime = parameters.get(self.upscantime_parameter_string) * 10
@@ -296,10 +235,8 @@ if __name__ == "__main__":
         print(f"Device error: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        
-    finally:    
-        device.end_measurement()
-        device.serial_port.close()
+    device.end_measurement()
+    device.serial_port.close()
 
 
 

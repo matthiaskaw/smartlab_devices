@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 from typing import List, Dict, Tuple
 
-from base_finite_device import BaseFiniteDevice
+from src.base_finite_device import BaseFiniteDevice
 
 
 class DummyFiniteDevice(BaseFiniteDevice):
@@ -43,7 +43,17 @@ class DummyFiniteDevice(BaseFiniteDevice):
                 "isRequired": True,
                 "unit": "points",
                 "description": "Number of measurement points to collect"
+            },
+            {
+                "name": "Option test",
+                "displayName": "Trying out parameter options",
+                "type": "String",
+                "defaultValue": "Option A",
+                "isRequired": True,
+                "description": "Select options.",
+                "options": ["Option A", "Option B"]                  
             }
+            
         ]
 
     async def generate_measurement_data(self) -> List[Dict]:
