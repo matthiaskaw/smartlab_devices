@@ -5,8 +5,8 @@
 $REMOTE_USER = "smartlab"
 $REMOTE_HOST = "192.168.0.100"
 $REMOTE_PATH = "~/devices"
-$REMOTE_SSH_KEY = "c:\Users\matth\.ssh\smartlab_pi_4"
-
+#$REMOTE_SSH_KEY = "c:\Users\matth\.ssh\smartlab_pi_4"
+$REMOTE_SSH_KEY = "c:\Users\da72seda\.ssh\smartlab_pi_4"
 
 
 $WSL_HOST = $REMOTE_HOST
@@ -15,10 +15,10 @@ $WSL_USER = $REMOTE_USER
 $WSL_TARGET_PATH = $REMOTE_PATH
 
 
-$EXECUTABLE_NAME = "smps_V2"
+$EXECUTABLE_NAME = "smps"
 $LOCAL_EXECUTABLE = "./dist/${EXECUTABLE_NAME}"
 
-$LOCAL_PYTHON_SCRIPT = "./smps_V2.py"
+$LOCAL_PYTHON_SCRIPT = "./smps.py"
 $LOCAL_SRC_DIR = "./src/*.py"
 
 

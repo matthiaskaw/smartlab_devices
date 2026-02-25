@@ -11,6 +11,8 @@ from datetime import datetime
 from typing import List, Dict, Tuple
 
 from src.base_finite_device import BaseFiniteDevice
+from src.smps_post_processor import SMPSProcessor
+
 
 class SMPS(BaseFiniteDevice):
     """
@@ -44,6 +46,7 @@ class SMPS(BaseFiniteDevice):
         self.sheathflow_parameter_string = "sheathflow"
         self.aerosolflow_parameter_string = "aerosolflow"
         self.dma_parameter_string = "DMA_Type"
+        
 
     # =========================================================================
     # Subclass Method Implementations
@@ -199,15 +202,22 @@ class SMPS(BaseFiniteDevice):
         while(not foundDelimiterString):
 
             response = self.serial_port.read_until(expected=b'\r')
-            response = response.decode('utf-8', errors='replace')
-            print(response)
-            data_points.append(response)
+            response = response.decode('utf-8', errors='replace').replace('"', "").replace("\r", "")
+            
+            data_points.append(float(response))
             if(response.find("-") > -1): foundDelimiterString = True
             
 
+        smpsProc = SMPSProcessor(self.dma_type, self.upscantime, self.aerosolflowrate/60000, self.sheatflowrate/60000)
+        data_points_task = smpsProc.convert_to_size_distribution(data_points, self.minvoltage, self.maxvoltage)        
 
         print(f"got these data points: {data_points}")
         self.end_measurement()
+        data_points = await data_points_task
+        #==================================
+        #====== Add post processing  ======
+        #==================================
+        
         return data_points
 
     def validate_parameters(self, parameters: Dict) -> Tuple[bool, str]:
@@ -215,12 +225,15 @@ class SMPS(BaseFiniteDevice):
         #Send parameters to device and check response; validation made by device itself
         #Put every step in function that returns the response
         
-        self._logger.info(f"Validating measurement data...")
+        self._logger.info(f"Validating parameters data...")
         
         self.minvoltage = parameters.get(self.minvoltage_parameter_string)
         self.maxvoltage = parameters.get(self.maxvoltage_parameter_string)
-        self.upscantime = parameters.get(self.upscantime_parameter_string) * 10
-        self.downscantime = parameters.get(self.downscantime_parameter_string) * 10
+        self.upscantime = parameters.get(self.upscantime_parameter_string)
+        self.downscantime = parameters.get(self.downscantime_parameter_string)
+        self.dma_type = parameters.get(self.dma_parameter_string)
+        self.aerosolflowrate = parameters.get(self.aerosolflow_parameter_string)
+        self.sheatflowrate = parameters.get(self.sheathflow_parameter_string)
         
         print("Setting CPC to SMPS mode")
         self.serial_port.write(b'SCM,2\r')
@@ -238,8 +251,8 @@ class SMPS(BaseFiniteDevice):
             print("SMPS.validate_parameters: found no OK in response")
             return (False, "Received ERROR after setting voltages.")
         print("left if clause...")
-        print(f"Setting upscan time to {self.upscantime/10} s and down scan time to {self.downscantime/10} s ...")
-        self.serial_port.write(f'ZT0,{self.upscantime},{self.downscantime}\r'.encode('utf-8'))
+        print(f"Setting upscan time to {self.upscantime} s and down scan time to {self.downscantime} s ...")
+        self.serial_port.write(f'ZT0,{self.upscantime*10},{self.downscantime*10}\r'.encode('utf-8'))
         response = self.serial_port.read(100)
         print(f"Response: {response}")
         if(response.find(b'OK') == -1): 
