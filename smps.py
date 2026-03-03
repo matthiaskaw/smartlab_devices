@@ -152,7 +152,7 @@ class SMPS(BaseFiniteDevice):
             {
                 "name": f"{self.sheathflow_parameter_string}",
                 "displayName": "Sheathflow in L/min",
-                "type": "Integer",
+                "type": "Float",
                 "defaultValue": 15,
                 "isRequired": True,
                 "description": "Sheathflow in L/min for measurement"           
@@ -161,7 +161,7 @@ class SMPS(BaseFiniteDevice):
             {
                 "name": f"{self.aerosolflow_parameter_string}",
                 "displayName": "Aerosolflow in L/min",
-                "type": "Integer",
+                "type": "Float",
                 "defaultValue": 1.5,
                 "isRequired": True,
                 "description": "Sheathflow in L/min for measurement"           
@@ -207,8 +207,10 @@ class SMPS(BaseFiniteDevice):
             data_points.append(float(response))
             if(response.find("-") > -1): foundDelimiterString = True
             
-
+        
         smpsProc = SMPSProcessor(self.dma_type, self.upscantime, self.aerosolflowrate/60000, self.sheatflowrate/60000)
+        self._logger.info(f"SMPS aerosol flowrate = {self.aerosolflowrate}; sheathflow rate {self.sheatflowrate}, DMA Type {self.dma_type}")
+        self._logger.info(f"SMPSproc: r1 = {smpsProc._r1}, r2 = {smpsProc._r2}, time across dma = {smpsProc._time_across_DMA}, time to cpc = {smpsProc._time_classifier_cpc_connector}, sheathflow = {smpsProc._sheath_flow_rate}, aerosol flow {smpsProc._aerosol_flow_rate}")
         data_points_task = smpsProc.convert_to_size_distribution(data_points, self.minvoltage, self.maxvoltage)        
 
         print(f"got these data points: {data_points}")

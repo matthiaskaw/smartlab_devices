@@ -11,8 +11,8 @@ class SMPSProcessor():
 
     def __init__(self, DMA_Type : str,
                  upscantime : int,
-                 aerosol_flow_rate : int,
-                 sheath_flow_rate : int):
+                 aerosol_flow_rate : float,
+                 sheath_flow_rate : float):
 
         logging.basicConfig(filename="smps_postprocessing.log",level=logging.INFO)
         
@@ -34,26 +34,28 @@ class SMPSProcessor():
 
         #remove downscan time from data
         cut_data = data[:self._upscantime*10]
-        self._logger.info(f"Removed data length from {len(data)} to {len(data)}")
+        self._logger.info(f"Removed data length from {len(data)} to {len(cut_data)}")
 
         time = np.linspace(0,self._upscantime, len(cut_data))
         self._logger.info(f"Created time vector with max time = {max(time)} and len = {len(time)}")
         
-
+        print(time)
         t_f = self._time_across_DMA
         t_d = self._time_classifier_cpc_connector
         self._logger.info(f"t_f = {t_f} s| t_d = {t_d} s")
         voltage = minvoltage * (maxvoltage/minvoltage) ** (
             (time -t_f - t_d ) / (self._upscantime - t_f - t_d)
             )
+        print(voltage)
         
         
 
         diameter = self._voltage_to_diameter(voltage)
+        print(f"{min(diameter)} | {max(diameter)}")
         data = []
         for (d,c) in zip(diameter, cut_data):
           data.append([float(d),c])
-        return data
+        return data, voltage
         
         
 
@@ -66,11 +68,11 @@ class SMPSProcessor():
             return np.pi * l * (r2 ** 2 - r1 ** 2)
         
         self._logger.info(f"Setting DMA values for  ...")
-        self._time_classifier_cpc_connector = cylinder_volume(0, 0.0025, 0.5) / self._aerosol_flow_rate
+        self._time_classifier_cpc_connector = cylinder_volume(0, 0.0025, 0.5) / self._aerosol_flow_rate + 3.4
 
         match self._DMA_TYPE:
             
-            case "3081":
+            case "Type 3081":
                 self._logger.info(f"Setting DMA values for 3081...")
                 
                 self._r1 = 0.937  / 100 # in meter
@@ -84,7 +86,7 @@ class SMPSProcessor():
                 return
 
 
-            case "3085":
+            case "Type 3085":
                 self._logger.info(f"Setting DMA values for 3085...")
                 
                 self._r1 = 0.937  / 100 # in meter
@@ -112,7 +114,7 @@ class SMPSProcessor():
         
         x_interp = np.logspace(-9, -6, 1000)
         cunningham = aerosol.cunningham_correction(x_interp)
-
+        print(f"Sheathflow {self._sheath_flow_rate}")
         nom = 3 * 1.72e-6 * self._sheath_flow_rate * np.log( self._r2 / self._r1 )
         denom = 2 * 1.609e-19 * self._L
         fac = nom / denom
@@ -126,33 +128,53 @@ class SMPSProcessor():
 
 
 
-#if __name__ == "__main__":
+if __name__ == "__main__":
     
 
-    # import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     
-    # smpsProc = SMPSProcessor("3085",120, 1.5/60000, 15/6000)
-    # data = []
-    # with open("test/test_smps_scan.txt") as f:
-    #     lines = f.readlines()
-    #     for l in lines:
-    #         data.append(float(l.strip().replace('"', "" ).replace("\\r", "")))
+    smpsProc = SMPSProcessor("Type 3085",120, 1.5/60000, 15/60000)
+    data = []
+    with open("test/test_smps_scan.txt") as f:
+        lines = f.readlines()
+        for l in lines:
+            data.append(float(l.strip().replace('"', "" ).replace("\\r", "")))
 
 
-    # data_arr = np.array(data)
-    # x = np.linspace(0,len(data), len(data))
+    data_arr = np.array(data)
+    x = np.linspace(0,len(data), len(data))
     
-    # mu = 1e3
-    # sigma = 0.01 * mu
-    # data_arr = data + 10000 / ( sigma * ( 2 * np.pi) ** 0.5 ) * np.exp( -0.5 * (x - mu) ** 2 / (sigma)**2 )
+
+        
+    mu = 1e3
+    sigma = 0.01 * mu
+    data_arr = data + 10000 / ( sigma * ( 2 * np.pi) ** 0.5 ) * np.exp( -0.5 * (x - mu) ** 2 / (sigma)**2 )
+    print(f"{smpsProc._time_classifier_cpc_connector}s | {smpsProc._time_across_DMA}")
     
+    data, voltage = asyncio.run(smpsProc.convert_to_size_distribution(data, 10,10000))
+    print(np.array(data))
+    data = np.array(data)
     
-    # data = asyncio.run(smpsProc.convert_to_size_distribution(data, 10,10000))
+
+    def voltage_func(x, tf, td):
+        
+        vmin = 10
+        vmax = 10000
+
+        return vmin * (vmax/vmin) ** ((x - tf - td) / (120 - tf - td))
     
+
+    time = np.linspace(0,120,1000)
     
-    # print(data)
+    from scipy.optimize import curve_fit
+
     
-    # plt.show()
+
+    voltage_fit = np.array([10, 1110, 5027, 9581])
+    diameter = np.array([14.3, 148.6, 406.8, 673.2])
+    plt.plot(voltage, data[:,0])
+    
+    plt.show()
     
 
 

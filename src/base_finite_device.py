@@ -68,7 +68,7 @@ class BaseFiniteDevice(ABC):
         self.device_id = device_id
         self.should_stop = False
         self.measurement_parameters = {}
-        logging.basicConfig(filename="smps.log", level=logging.INFO)
+        logging.basicConfig(filename="basedevice.log", level=logging.INFO)
         self._logger = logging.getLogger(__name__)
         # Platform-specific pipe paths and handles
         if IS_WINDOWS:
