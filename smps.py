@@ -149,7 +149,7 @@ class SMPS(BaseFiniteDevice):
             {
                 "name": f"{self.sheathflow_parameter_string}",
                 "displayName": "Sheathflow in L/min",
-                "type": "Integer",
+                "type": "Float",
                 "defaultValue": 15,
                 "isRequired": True,
                 "description": "Sheathflow in L/min for measurement"           
@@ -158,7 +158,7 @@ class SMPS(BaseFiniteDevice):
             {
                 "name": f"{self.aerosolflow_parameter_string}",
                 "displayName": "Aerosolflow in L/min",
-                "type": "Integer",
+                "type": "Float",
                 "defaultValue": 1.5,
                 "isRequired": True,
                 "description": "Sheathflow in L/min for measurement"           
